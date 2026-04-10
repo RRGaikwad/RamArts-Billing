@@ -1,4 +1,4 @@
-const CACHE_NAME = "ramarts-v6";
+const CACHE_NAME = "ramarts-v7";
 const PRE_CACHE_RESOURCES = [
   "./",
   "./index.html",
