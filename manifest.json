@@ -1,0 +1,25 @@
+{
+  "name": "Ram Arts Billing",
+  "short_name": "RamArts",
+  "description": "Invoice generator and billing app for Ram Arts.",
+  "start_url": "./RamArts%20Billing%20Receipt_01.html",
+  "display": "standalone",
+  "background_color": "#f5f0eb",
+  "theme_color": "#1a1a1a",
+  "orientation": "any",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "RamArts%20Icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "RamArts%20Icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

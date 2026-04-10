@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="icon" type="image/png" href="RamArts%20Icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Ram Arts – Invoice Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  /* ── RESET & TOKENS ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink:   #1a1a1a;
+    --mid:   #444;
+    --light: #888;
+    --line:  #222;
+    --bg:    #f5f0eb;
+    --panel: #ffffff;
+    --accent:#b5410a;
+    --radius:10px;
+    --ff-head: 'Playfair Display', serif;
+    --ff-body: 'EB Garamond', serif;
+    --ff-ui:   'Source Sans 3', sans-serif;
+    --ff-mono: 'Montserrat', sans-serif;
+  }
+
+  body {
+    font-family: var(--ff-ui);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  /* ── APP SHELL ── */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── SIDEBAR FORM ── */
+  .sidebar {
+    width: 400px; min-width: 360px;
+    background: var(--panel);
+    border-right: 1px solid #ddd;
+    display: flex; flex-direction: column;
+    height: 100%;
+    z-index: 100;
+  }
+  
+  /* ── HISTORY DRAWER ── */
+  .history-drawer {
+    position: fixed; top: 0; left: -400px; width: 400px; height: 100vh;
+    background: var(--panel); border-right: 1px solid #ddd;
+    z-index: 200; transition: left 0.3s ease;
+    display: flex; flex-direction: column;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+  }
+  .history-drawer.open { left: 0; }
+  .history-header {
+    background: var(--ink); color: #fff;
+    padding: 22px 24px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .history-header h2 { font-family: var(--ff-head); font-size: 1.2rem; }
+  .btn-close-history { background: none; border: none; color: #fff; cursor: pointer; font-size: 1.5rem; }
+  
+  .history-body { padding: 20px; flex: 1; overflow-y: auto; }
+  .history-search { margin-bottom: 20px; }
+  
+  .history-item {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+    padding: 12px; margin-bottom: 12px; cursor: pointer;
+    transition: all 0.2s; position: relative;
+  }
+  .history-item:hover { border-color: var(--accent); background: #fff; }
+  .history-item-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 0.9rem; margin-bottom: 4px; }
+  .history-item-mid { font-size: 0.8rem; color: var(--mid); margin-bottom: 4px; }
+  .history-item-bottom { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--light); }
+  .btn-delete-history {
+    position: absolute; top: 8px; right: 8px;
+    background: #fee2e2; border: none; color: #ef4444;
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; opacity: 0; transition: opacity 0.2s;
+  }
+  .history-item:hover .btn-delete-history { opacity: 1; }
+  
+  .overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.4); z-index: 150;
+    display: none;
+  }
+  .overlay.show { display: block; }
+
+  .sidebar-header {
+    background: var(--ink);
+    color: #fff;
+    padding: 22px 24px 18px;
+  }
+  .sidebar-actions {
+    display: flex; gap: 8px; margin-top: 12px;
+  }
+  .btn-action {
+    flex: 1; padding: 6px; border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px; background: rgba(255,255,255,0.1);
+    color: #fff; font-size: 0.75rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    transition: background 0.2s;
+  }
+  .btn-action:hover { background: rgba(255,255,255,0.2); }
+  
+  .sidebar-header h1 { font-family: var(--ff-head); font-size: 1.35rem; letter-spacing: .5px; }
+  .sidebar-header p  { font-size: .8rem; opacity: .65; margin-top: 3px; }
+
+  .form-body { padding: 20px 20px 24px; flex: 1; overflow-y: auto; }
+
+  .section-label {
+    font-size: .68rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1.2px; color: var(--accent);
+    margin: 20px 0 8px;
+    padding-bottom: 4px; border-bottom: 1px solid #eee;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: .78rem; color: var(--mid); margin-bottom: 5px; font-weight: 600; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid #d5d5d5; border-radius: 8px;
+    font-family: var(--ff-ui); font-size: .92rem; color: var(--ink);
+    background: #fafafa; transition: all 0.2s;
+  }
+  .field input:focus, .field textarea:focus {
+    outline: none; border-color: var(--accent); background: #fff;
+    box-shadow: 0 0 0 3px rgba(181, 65, 10, 0.1);
+  }
+  .field textarea { resize: vertical; min-height: 56px; }
+
+  /* items table in sidebar */
+  .items-head {
+    display: none; /* Row labels are inside now */
+  }
+  .item-row {
+    background: #fdfdfd;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: box-shadow 0.2s;
+  }
+  .item-row:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-color: #cbd5e1; }
+  
+  .item-row-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .item-row .sno {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    background: #fff1f2;
+    padding: 4px 8px;
+    border-radius: 6px;
+    min-width: 28px;
+    text-align: center;
+  }
+  .item-row-inputs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 12px;
+  }
+  .item-row-notes {
+    margin-top: 8px;
+  }
+  .item-row-notes input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d5d5d5;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    color: var(--ink);
+    background: #fafafa;
+    font-family: var(--ff-ui);
+    transition: all 0.2s;
+  }
+  .item-row-notes input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(181, 65, 10, 0.1);
+  }
+  .item-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .item-field-group label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--light);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 0;
+  }
+  .item-row input {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid #d5d5d5; border-radius: 6px;
+    font-size: 0.88rem; color: var(--ink); background: #fafafa;
+    font-family: var(--ff-ui);
+    transition: all 0.2s;
+  }
+  .item-row input:focus { outline: none; border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgba(181, 65, 10, 0.1); }
+  
+  .item-row .amt-cell {
+    font-size: 0.95rem; color: var(--ink);
+    font-weight: 700;
+    padding-top: 6px;
+  }
+  .btn-remove {
+    background: #f1f5f9; border: none; cursor: pointer;
+    color: #94a3b8; font-size: 1.2rem; line-height: 1;
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    margin-left: auto;
+  }
+  .btn-remove:hover { color: #e53e3e; background: #fee2e2; transform: rotate(90deg); }
+  .btn-add {
+    margin-top: 10px; padding: 12px 14px;
+    border: 2px dashed #cbd5e1; border-radius: 10px;
+    background: #f8fafc; cursor: pointer;
+    font-size: .9rem; color: var(--mid);
+    font-family: var(--ff-ui); font-weight: 600;
+    width: 100%;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-add:hover { border-color: var(--accent); color: var(--accent); background: #fff; }
+
+  /* download buttons */
+  .dl-btns {
+    padding: 16px 20px 20px;
+    border-top: 1px solid #eee;
+    display: flex; gap: 10px;
+  }
+  .btn-dl {
+    flex: 1; padding: 11px 0;
+    border: none; border-radius: 8px;
+    font-family: var(--ff-ui); font-size: .88rem; font-weight: 600;
+    cursor: pointer; transition: opacity .2s, transform .1s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn-dl:active { transform: scale(.97); }
+  .btn-pdf { background: var(--ink); color: #fff; }
+  .btn-jpg { background: var(--accent); color: #fff; }
+  .btn-dl:hover { opacity: .88; }
+
+  /* ── PREVIEW AREA ── */
+  .preview-area {
+    flex: 1; padding: 20px;
+    display: flex; flex-direction: column; align-items: center;
+    background: #d1d5db; /* Slightly darker for better contrast */
+    overflow: auto;
+    min-width: 0;
+    position: relative;
+  }
+  .preview-controls {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(255,255,255,0.9);
+    padding: 8px 16px; border-radius: 20px;
+    margin-bottom: 20px;
+    display: flex; gap: 15px; align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    backdrop-filter: blur(4px);
+  }
+  .zoom-btn {
+    background: none; border: 1px solid #ccc;
+    width: 28px; height: 28px; border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; color: var(--ink);
+  }
+  .zoom-btn:hover { background: #f3f4f6; }
+  .zoom-text { font-size: 0.8rem; font-weight: 600; min-width: 45px; text-align: center; }
+
+  .preview-label {
+    font-size: .65rem; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; color: #666; margin-bottom: 0;
+  }
+
+  /* ── INVOICE SHEET ── */
+  #invoice {
+    width: 794px;            /* A4 at 96dpi */
+    min-height: 1123px;
+    background: #fff;
+    padding: 48px 56px 52px;
+    box-shadow: 0 10px 50px rgba(0,0,0,.25);
+    font-family: var(--ff-body);
+    color: var(--ink);
+    position: relative;
+    transform-origin: top center;
+    margin-bottom: 40px; /* Space at bottom for scrolling */
+  }
+
+  /* header */
+  .inv-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--line);
+  }
+  .inv-logo-block { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  /* logo img inline */
+  .inv-shop-name {
+    font-family: var(--ff-head);
+    font-size: 1.05rem; letter-spacing: 3px;
+    color: var(--ink); margin-top: 2px;
+  }
+
+  .inv-addr {
+    text-align: right; font-size: .83rem; line-height: 1.65;
+  }
+  .inv-addr strong { font-size: .9rem; font-weight: 600; }
+
+  /* invoice title + date */
+  .inv-title-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin: 22px 0 18px;
+  }
+  .inv-title {
+    font-family: var(--ff-head);
+    font-size: 1.6rem; font-weight: 700;
+    flex: 1; text-align: center;
+  }
+  .inv-date-block { text-align: right; min-width: 160px; }
+  .inv-date-block .dl { font-size: .85rem; }
+  .inv-date-block .dv {
+    font-size: .88rem; font-weight: 600;
+    display: inline-block; min-width: 100px;
+    border-bottom: 1px solid #bbb;
+    padding-bottom: 1px; margin-left: 4px;
+  }
+
+  /* customer */
+  .inv-customer { margin-bottom: 22px; }
+  .inv-customer .mr {
+    font-size: .92rem; margin-bottom: 6px;
+  }
+  .inv-customer .mr span {
+    border-bottom: 1px solid #aaa;
+    display: inline-block; min-width: 260px; padding-bottom: 1px;
+  }
+  .inv-customer .contact { font-size: .85rem; margin-top: 6px; line-height: 1.7; }
+
+  /* items table */
+  .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+  .inv-table thead tr th {
+    font-family: var(--ff-body); font-weight: 600;
+    font-size: .88rem; padding: 8px 10px;
+    border-bottom: 1.5px solid var(--line);
+    text-align: left;
+  }
+  .inv-table thead th:nth-child(3),
+  .inv-table thead th:nth-child(4),
+  .inv-table thead th:nth-child(5) { text-align: right; }
+  .inv-table tbody tr td {
+    padding: 9px 10px; font-size: .87rem;
+    border-bottom: 1px solid #eee; vertical-align: top;
+  }
+  .inv-table tbody tr td:nth-child(3),
+  .inv-table tbody tr td:nth-child(4),
+  .inv-table tbody tr td:nth-child(5) { text-align: right; }
+  .inv-table tbody tr:last-child td { border-bottom: none; }
+
+  /* total block */
+  .inv-total-row {
+    border-top: 2px solid var(--line);
+    margin-top: 10px;
+    padding-top: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .inv-total-label {
+    font-family: var(--ff-mono); font-size: 1.15rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  .inv-total-value {
+    font-family: var(--ff-mono); font-size: 1.35rem; font-weight: 700;
+    color: var(--ink);
+  }
+  .inv-inwords {
+    font-size: .88rem; margin-top: 10px; line-height: 1.7;
+  }
+  .inv-inwords .underline {
+    display: inline-block; border-bottom: 1px solid #aaa;
+    min-width: 260px; padding-bottom: 1px; margin: 0 3px;
+  }
+
+  /* footer */
+  .inv-footer-note {
+    margin-top: 38px; font-size: 16px;
+    color: var(--mid);
+    padding-left: 48px;
+    font-style: italic;
+  }
+  .inv-footer-note2 {
+    margin-top: 4px; font-size: .83rem;
+    padding-left: 48px;
+  }
+  .inv-sig-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-top: 80px; font-size: .85rem;
+  }
+  .inv-sig-block { min-width: 180px; }
+  .inv-sig-block .sig-line {
+    width: 180px; border-top: 1.5px solid var(--ink);
+    margin: 40px 0 5px 0;
+  }
+  .inv-sig-block.receiver .sig-line {
+    margin-left: auto;
+  }
+  .inv-sig-block .sig-label { font-size: .9rem; font-weight: 600; }
+  .inv-sig-block .sig-sub { font-weight: 600; font-size: .82rem; margin-top: 0; }
+
+  /* spacer rows in table */
+  .inv-table tbody .empty-row td { height: 32px; }
+
+  /* ── SCROLLBAR ── */
+  .sidebar::-webkit-scrollbar { width: 5px; }
+  .sidebar::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff;
+    padding: 10px 24px; border-radius: 24px;
+    font-size: .85rem; font-family: var(--ff-ui);
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 900px) {
+    .app { flex-direction: column; height: auto; overflow: visible; }
+    .sidebar { width: 100%; min-width: 0; height: auto; }
+    .history-drawer { width: 100%; left: -100%; }
+    .history-drawer.open { left: 0; }
+    .preview-area { padding: 20px 10px; min-height: 500px; height: auto; overflow: visible; }
+    #invoice { transform-origin: top center; }
+  }
+
+  @media (max-width: 480px) {
+    .item-row-inputs {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .dl-btns {
+      flex-direction: column;
+    }
+  }
+
+  /* ── PRINT STYLES ── */
+  @media print {
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    body {
+      background: #fff;
+    }
+    .sidebar, .preview-label, .preview-controls, #toast, .overlay, .history-drawer {
+      display: none !important;
+    }
+    .app {
+      display: block;
+      height: auto;
+      overflow: visible;
+    }
+    .preview-area {
+      padding: 0;
+      background: #fff;
+      overflow: visible;
+      display: block;
+    }
+    #invoice {
+      width: 210mm; /* A4 width */
+      min-height: 297mm; /* A4 height */
+      margin: 0 auto;
+      box-shadow: none;
+      transform: none !important; /* Ensure it doesn't print scaled */
+    }
+    .inv-table tr {
+      page-break-inside: avoid;
+    }
+    .inv-header, .inv-title-row, .inv-customer, .inv-total-row, .inv-sig-row {
+      page-break-inside: avoid;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ══ HISTORY DRAWER ══ -->
+  <div class="overlay" id="overlay" onclick="toggleHistory()"></div>
+  <div class="history-drawer" id="history-drawer">
+    <div class="history-header">
+      <h2>Invoice History</h2>
+      <button class="btn-close-history" onclick="toggleHistory()">×</button>
+    </div>
+    <div class="history-body">
+      <div class="field history-search">
+        <input type="text" placeholder="Search by number or customer..." oninput="searchHistory(this.value)"/>
+      </div>
+      <div id="history-list">
+        <!-- History items will appear here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>Ram Arts — Invoice</h1>
+      <p>Fill the form · Preview live · Download</p>
+      
+      <div class="sidebar-actions">
+        <button class="btn-action" onclick="saveToHistory()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Save
+        </button>
+        <button class="btn-action" onclick="toggleHistory()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          History
+        </button>
+        <button class="btn-action" onclick="resetForm()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Reset
+        </button>
+      </div>
+    </div>
+
+    <div class="form-body">
+
+      <div class="section-label">Invoice Info</div>
+      <div class="field">
+        <label>Invoice Number</label>
+        <input type="text" id="f-inv-no" placeholder="e.g. RA-001"/>
+      </div>
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="f-date"/>
+      </div>
+      <div class="field">
+        <label>Time</label>
+        <input type="time" id="f-time"/>
+      </div>
+
+      <div class="section-label">Customer</div>
+      <div class="field">
+        <label>Mr / Ms. (Customer Name)</label>
+        <input type="text" id="f-customer" placeholder="Customer name"/>
+      </div>
+
+      <div class="section-label">Items</div>
+      <div class="items-head">
+        <span>#</span><span>Description</span><span>Unit Price</span><span>Units</span><span>Disc.</span><span>GST</span><span>Amount</span><span></span>
+      </div>
+      <div id="items-container"></div>
+      <button class="btn-add" onclick="addItem()">+ Add Item</button>
+
+      <div class="section-label">Summary</div>
+      <div class="field">
+        <label>Amount in Words (auto-filled, editable)</label>
+        <input type="text" id="f-inwords" placeholder="e.g. Five Hundred Only"/>
+      </div>
+
+    </div>
+
+    <div class="dl-btns">
+      <button class="btn-dl btn-pdf" onclick="downloadPDF()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        PDF
+      </button>
+      <button class="btn-dl btn-jpg" onclick="downloadJPG()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        JPG
+      </button>
+      <button class="btn-dl btn-print" onclick="printInvoice()" style="background: #4b5563; color: #fff;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══ PREVIEW ══ -->
+  <main class="preview-area">
+    <div class="preview-controls">
+      <span class="preview-label">Preview</span>
+      <button class="zoom-btn" onclick="zoomOut()" title="Zoom Out">−</button>
+      <span class="zoom-text" id="zoom-val">100%</span>
+      <button class="zoom-btn" onclick="zoomIn()" title="Zoom In">+</button>
+      <button class="btn-action" style="padding: 4px 10px; color: var(--ink); border-color: #ccc; background: none;" onclick="fitToWidth()">Fit Width</button>
+      <button class="btn-action" style="padding: 4px 10px; color: var(--ink); border-color: #ccc; background: none;" onclick="fitToPage()">Fit Page</button>
+    </div>
+
+    <div id="invoice">
+
+      <!-- HEADER -->
+      <div class="inv-header">
+        <div class="inv-logo-block">
+          <img src="RamArts%20Icon.png" alt="Ram Arts Logo" style="height: 60px; width: auto;">
+          <div class="inv-shop-name">Ram Arts</div>
+        </div>
+
+        <div class="inv-addr">
+          <strong>Someshwar Sugar Factory road<br>Someshwarnagar</strong><br>
+          <b>Tal</b>: BARAMATI <br>
+          <b> Dist</b>:PUNE<br>
+          E-mail : <a href="mailto:ramarts1222@gmail.com">ramarts1222@gmail.com</a><br>
+          Mo : 8888503109 / 9765338027
+        </div>
+      </div>
+
+      <!-- TITLE + DATE -->
+      <div class="inv-title-row">
+        <div style="width:160px">
+          <div class="dl">Inv No : <span class="dv" id="p-inv-no"></span></div>
+        </div>
+        <div class="inv-title">Invoice</div>
+        <div class="inv-date-block">
+          <div class="dl">Date : <span class="dv" id="p-date"></span></div>
+          <div class="dl" style="margin-top:4px">Time : <span class="dv" id="p-time"></span></div>
+        </div>
+      </div>
+
+      <!-- CUSTOMER -->
+      <div class="inv-customer">
+        <div class="mr"><b>Mr/Ms.</b> <span id="p-customer"></span></div>
+        <div class="contact">
+          Contact Person Mr.- Swapnil Gaikwad<br>
+          Cell: +91 8888503109
+        </div>
+      </div>
+
+      <!-- ITEMS TABLE -->
+      <table class="inv-table">
+        <thead>
+          <tr>
+            <th style="width:52px">S.No.</th>
+            <th>Description</th>
+            <th style="width:130px">Unit Price (Rs)</th>
+            <th style="width:80px">Units</th>
+            <th style="width:80px">Disc. (%)</th>
+            <th style="width:80px">GST (%)</th>
+            <th style="width:130px">Amount (Rs)</th>
+          </tr>
+        </thead>
+        <tbody id="p-items">
+          <!-- filled by JS -->
+        </tbody>
+      </table>
+
+      <!-- TOTAL -->
+      <div class="inv-total-row">
+        <div class="inv-total-label">Total</div>
+        <div class="inv-total-value" id="p-total">Rs. 0.00</div>
+      </div>
+
+      <!-- IN WORDS -->
+      <div class="inv-inwords">
+        ( In Words Rupees <span class="underline" id="p-inwords"></span> only )
+      </div>
+
+      <!-- NOTE -->
+      <div class="inv-footer-note">
+        If you require any further information or need any clarification please feel free to contact us.
+      <br><b>Yours truly.</b>
+      </div>
+      <div class="inv-footer-note"></div>
+
+      <!-- SIGNATURES -->
+      <div class="inv-sig-row">
+        <div class="inv-sig-block" style="text-align:left">
+          
+          <div class="sig-line"></div>
+          <div class="sig-label">For Ram Arts</div>
+          <div class="sig-sub">Authorised Signatory</div>
+        </div>
+        <div class="inv-sig-block receiver" style="text-align:right">
+          
+          <div class="sig-line"></div>
+          <div class="sig-label">For Receiver</div>
+        </div>
+      </div>
+
+    </div><!-- /invoice -->
+  </main>
+</div>
+
+<div id="toast">Generating…</div>
+
+<script>
+/* ──────────────────────────────────────────────
+   DATA
+────────────────────────────────────────────── */
+let items = [{ desc: '', price: '', units: '1', gstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
+
+/* ──────────────────────────────────────────────
+   INIT
+────────────────────────────────────────────── */
+(function init() {
+  // set today's date & time
+  const now = new Date();
+  document.getElementById('f-date').value = now.toISOString().slice(0,10);
+  document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+
+  bindEvents();
+  renderSidebarItems();
+  loadCurrentForm(); // Load any previously saved work
+  updatePreview();
+  setupAutoScaling();
+})();
+
+/* ──────────────────────────────────────────────
+   AUTO-SCALING & ZOOM
+────────────────────────────────────────────── */
+let currentZoom = 1;
+const INVOICE_WIDTH = 794;
+
+function setupAutoScaling() {
+  const previewArea = document.querySelector('.preview-area');
+  const resizeObserver = new ResizeObserver(() => {
+    // Only auto-scale if we're in a "Fit Width" mode or small screen
+    // For now, let's keep it responsive but allow manual zoom override
+    applyScaling();
+  });
+  resizeObserver.observe(previewArea);
+  
+  // Initial Fit
+  setTimeout(fitToWidth, 100);
+}
+
+function applyScaling() {
+  const previewArea = document.querySelector('.preview-area');
+  const invoice = document.getElementById('invoice');
+  const zoomVal = document.getElementById('zoom-val');
+  
+  const containerWidth = previewArea.clientWidth;
+  const paddingX = 40; // 20px each side
+  const availableWidth = containerWidth - paddingX;
+  
+  // If manual zoom is 1, but container is too small, auto-scale down
+  let finalScale = currentZoom;
+  if (availableWidth < INVOICE_WIDTH * currentZoom) {
+    finalScale = availableWidth / INVOICE_WIDTH;
+  }
+  
+  invoice.style.transform = `scale(${finalScale})`;
+  zoomVal.textContent = Math.round(finalScale * 100) + '%';
+  
+  // Adjust container min-height to avoid cut-off or extra space
+  previewArea.style.minHeight = 'auto'; // Reset
+  const scaledHeight = invoice.offsetHeight * finalScale;
+}
+
+function zoomIn() {
+  currentZoom = Math.min(currentZoom + 0.1, 2);
+  applyScaling();
+}
+
+function zoomOut() {
+  currentZoom = Math.max(currentZoom - 0.1, 0.3);
+  applyScaling();
+}
+
+function fitToWidth() {
+  const previewArea = document.querySelector('.preview-area');
+  const containerWidth = previewArea.clientWidth;
+  const paddingX = 40;
+  currentZoom = (containerWidth - paddingX) / INVOICE_WIDTH;
+  if (currentZoom > 1) currentZoom = 1; // Don't over-scale A4
+  applyScaling();
+}
+
+function fitToPage() {
+  const previewArea = document.querySelector('.preview-area');
+  const invoice = document.getElementById('invoice');
+  const containerWidth = previewArea.clientWidth;
+  const containerHeight = previewArea.clientHeight;
+  const paddingX = 40;
+  const paddingY = 80; // 20px top, 20px bottom, plus controls
+  
+  const scaleX = (containerWidth - paddingX) / INVOICE_WIDTH;
+  const scaleY = (containerHeight - paddingY) / invoice.offsetHeight;
+  
+  currentZoom = Math.min(scaleX, scaleY);
+  if (currentZoom > 1) currentZoom = 1;
+  applyScaling();
+}
+
+/* ──────────────────────────────────────────────
+   EVENT BINDINGS
+────────────────────────────────────────────── */
+function bindEvents() {
+  ['f-inv-no','f-date','f-time','f-customer', 'f-inwords'].forEach(id => {
+    document.getElementById(id).addEventListener('input', (e) => {
+      // Auto-capitalize Name and In Words fields
+      if (id === 'f-customer' || id === 'f-inwords') {
+        const start = e.target.selectionStart;
+        e.target.value = toTitleCase(e.target.value);
+        e.target.setSelectionRange(start, start);
+      }
+      updatePreview();
+      saveCurrentForm();
+    });
+  });
+}
+
+function toTitleCase(str) {
+  return str.replace(/\b\w/g, char => char.toUpperCase());
+}
+
+/* ──────────────────────────────────────────────
+   DATA PERSISTENCE & HISTORY
+────────────────────────────────────────────── */
+function saveCurrentForm() {
+  const formData = {
+    invNo: document.getElementById('f-inv-no').value,
+    date: document.getElementById('f-date').value,
+    time: document.getElementById('f-time').value,
+    customer: document.getElementById('f-customer').value,
+    inwords: document.getElementById('f-inwords').value,
+    items: items
+  };
+  localStorage.setItem('ramarts_current_invoice', JSON.stringify(formData));
+}
+
+function loadCurrentForm() {
+  const saved = localStorage.getItem('ramarts_current_invoice');
+  if (saved) {
+    const data = JSON.parse(saved);
+    document.getElementById('f-inv-no').value = data.invNo || getNextInvoiceNumber();
+    document.getElementById('f-date').value = data.date || '';
+    document.getElementById('f-time').value = data.time || '';
+    document.getElementById('f-customer').value = data.customer || '';
+    document.getElementById('f-inwords').value = data.inwords || '';
+    items = data.items || [{ desc: '', price: '', units: '1', gstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
+    renderSidebarItems();
+    updatePreview();
+  } else {
+    document.getElementById('f-inv-no').value = getNextInvoiceNumber();
+  }
+}
+
+function getNextInvoiceNumber() {
+  const history = JSON.parse(localStorage.getItem('ramarts_history') || '[]');
+  if (history.length === 0) return 'RA-001';
+  
+  // Try to find the highest numeric part in invNo
+  let maxNum = 0;
+  history.forEach(inv => {
+    const match = inv.invNo.match(/\d+/);
+    if (match) {
+      const num = parseInt(match[0]);
+      if (num > maxNum) maxNum = num;
+    }
+  });
+  
+  const nextNum = maxNum + 1;
+  return 'RA-' + nextNum.toString().padStart(3, '0');
+}
+
+function saveToHistory() {
+  const invNo = document.getElementById('f-inv-no').value || getNextInvoiceNumber();
+  const customer = document.getElementById('f-customer').value || 'No Customer';
+  const total = items.reduce((sum, item) => sum + calcAmount(item), 0);
+  
+  const invoice = {
+    id: Date.now(),
+    invNo,
+    customer,
+    date: document.getElementById('f-date').value,
+    time: document.getElementById('f-time').value,
+    inwords: document.getElementById('f-inwords').value,
+    items: JSON.parse(JSON.stringify(items)),
+    total: total.toFixed(2)
+  };
+  
+  let history = JSON.parse(localStorage.getItem('ramarts_history') || '[]');
+  
+  // Check if invoice number already exists to avoid duplicates in history
+  const existingIndex = history.findIndex(h => h.invNo === invNo);
+  if (existingIndex !== -1) {
+    if (confirm(`Invoice ${invNo} already exists in history. Update it?`)) {
+      history[existingIndex] = invoice;
+    } else {
+      return;
+    }
+  } else {
+    history.unshift(invoice);
+  }
+  
+  localStorage.setItem('ramarts_history', JSON.stringify(history));
+  showToast('Invoice saved to history ✓');
+  renderHistory();
+  
+  // After saving, suggest next number for a fresh start if user wants
+  if (confirm('Invoice saved. Do you want to start a new invoice with the next number?')) {
+    resetForm(true); // Internal reset without confirm
+  }
+}
+
+function toggleHistory() {
+  const drawer = document.getElementById('history-drawer');
+  const overlay = document.getElementById('overlay');
+  drawer.classList.toggle('open');
+  overlay.classList.toggle('show');
+  if (drawer.classList.contains('open')) renderHistory();
+}
+
+function renderHistory(searchTerm = '') {
+  const container = document.getElementById('history-list');
+  const history = JSON.parse(localStorage.getItem('ramarts_history') || '[]');
+  container.innerHTML = '';
+  
+  const filtered = history.filter(inv => 
+    inv.invNo.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    inv.customer.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  if (filtered.length === 0) {
+    container.innerHTML = '<p style="text-align:center; color:#888; margin-top:20px;">No invoices found</p>';
+    return;
+  }
+  
+  filtered.forEach(inv => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.onclick = () => loadInvoice(inv.id);
+    div.innerHTML = `
+      <div class="history-item-top">
+        <span>#${inv.invNo}</span>
+        <span>Rs. ${inv.total}</span>
+      </div>
+      <div class="history-item-mid">${inv.customer}</div>
+      <div class="history-item-bottom">
+        <span>${formatDate(inv.date)}</span>
+        <span>${inv.items.length} items</span>
+      </div>
+      <button class="btn-delete-history" onclick="deleteInvoice(event, ${inv.id})">×</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function loadInvoice(id) {
+  const history = JSON.parse(localStorage.getItem('ramarts_history') || '[]');
+  const inv = history.find(i => i.id === id);
+  if (inv) {
+    document.getElementById('f-inv-no').value = inv.invNo;
+    document.getElementById('f-date').value = inv.date;
+    document.getElementById('f-time').value = inv.time;
+    document.getElementById('f-customer').value = inv.customer;
+    document.getElementById('f-inwords').value = inv.inwords;
+    items = inv.items;
+    renderSidebarItems();
+    updatePreview();
+    toggleHistory();
+    saveCurrentForm();
+    showToast('Invoice loaded ✓');
+  }
+}
+
+function deleteInvoice(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this invoice from history?')) return;
+  let history = JSON.parse(localStorage.getItem('ramarts_history') || '[]');
+  history = history.filter(i => i.id !== id);
+  localStorage.setItem('ramarts_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function resetForm(internal = false) {
+  if (!internal && !confirm('Clear all fields?')) return;
+  document.getElementById('f-inv-no').value = getNextInvoiceNumber();
+  const now = new Date();
+  document.getElementById('f-date').value = now.toISOString().slice(0,10);
+  document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+  document.getElementById('f-customer').value = '';
+  document.getElementById('f-inwords').value = '';
+  items = [{ desc: '', price: '', units: '1', gstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
+  renderSidebarItems();
+  updatePreview();
+  saveCurrentForm();
+  if (!internal) showToast('Form reset ✓');
+}
+
+function searchHistory(val) {
+  renderHistory(val);
+}
+
+/* ──────────────────────────────────────────────
+   SIDEBAR ITEMS
+────────────────────────────────────────────── */
+function renderSidebarItems() {
+  const c = document.getElementById('items-container');
+  c.innerHTML = '';
+  items.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    const amount = calcAmount(item);
+    row.innerHTML = `
+      <div class="item-row-header">
+        <span class="sno">#${i+1}</span>
+        <input type="text" placeholder="Description" value="${item.desc}"
+               oninput="this.value=toTitleCase(this.value);items[${i}].desc=this.value;updatePreview()" style="flex:1"/>
+        <button class="btn-remove" onclick="removeItem(${i})" title="Remove">×</button>
+      </div>
+      <div class="item-row-inputs">
+        <div class="item-field-group">
+          <label>Unit Price</label>
+          <input type="number" placeholder="0.00" value="${item.price}" min="0" step="0.01"
+                 oninput="updateItem(${i}, 'price', this.value, this)"/>
+        </div>
+        <div class="item-field-group">
+          <label>Units</label>
+          <input type="number" placeholder="1" value="${item.units}" min="1" step="1"
+                 oninput="updateItem(${i}, 'units', this.value, this)"/>
+        </div>
+        <div class="item-field-group">
+          <label>GST (%)</label>
+          <input type="number" placeholder="0" value="${item.gstRate}" min="0" step="0.01"
+                 oninput="updateItem(${i}, 'gstRate', this.value, this)"/>
+        </div>
+        <div class="item-field-group">
+          <label>Discount (%)</label>
+          <input type="number" placeholder="0" value="${item.discountRate}" min="0" step="0.01"
+                 oninput="updateItem(${i}, 'discountRate', this.value, this)"/>
+        </div>
+        <div class="item-field-group">
+          <label>Amount (Rs)</label>
+          <div class="amt-cell">${amount > 0 ? amount.toFixed(2) : '—'}</div>
+        </div>
+      </div>
+      <div class="item-row-notes">
+        <input type="text" placeholder="Item notes (optional)" value="${item.notes}"
+               oninput="updateItem(${i}, 'notes', this.value, this)"/>
+      </div>
+    `;
+    c.appendChild(row);
+  });
+}
+
+function updateItem(i, field, val, el) {
+  items[i][field] = val;
+  updatePreview();
+  // Targeted sidebar amount update
+  const row = el.closest('.item-row');
+  const amtCell = row.querySelector('.amt-cell');
+  const amount = calcAmount(items[i]);
+  amtCell.textContent = amount > 0 ? amount.toFixed(2) : '—';
+}
+
+function addItem() {
+  items.push({ desc: '', price: '', units: '1', gstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' });
+  renderSidebarItems();
+  updatePreview();
+  // focus last description
+  setTimeout(() => {
+    const rows = document.querySelectorAll('.item-row input[type=text]');
+    if (rows.length) rows[rows.length-1].focus();
+  }, 50);
+}
+
+function removeItem(i) {
+  if (items.length === 1) { items[0] = {desc:'',price:'',units:'1', gstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: ''}; }
+  else items.splice(i, 1);
+  renderSidebarItems();
+  updatePreview();
+}
+
+function calcAmount(item) {
+  const p = parseFloat(item.price);
+  const u = parseFloat(item.units);
+  const gstR = parseFloat(item.gstRate);
+  const discountR = parseFloat(item.discountRate);
+
+  if (isNaN(p) || isNaN(u)) return 0;
+
+  let baseAmount = p * u;
+
+  // Apply discount
+  let discountAmount = 0;
+  if (!isNaN(discountR) && discountR > 0) {
+    discountAmount = baseAmount * (discountR / 100);
+    baseAmount -= discountAmount;
+  }
+  item.discountAmount = discountAmount.toFixed(2); // Store calculated discount
+
+  // Apply GST
+  let gstAmount = 0;
+  if (!isNaN(gstR) && gstR > 0) {
+    gstAmount = baseAmount * (gstR / 100);
+    baseAmount += gstAmount;
+  }
+  item.gstAmount = gstAmount.toFixed(2); // Store calculated GST
+
+  return baseAmount;
+}
+
+/* ──────────────────────────────────────────────
+   PREVIEW UPDATE
+────────────────────────────────────────────── */
+function updatePreview() {
+  // invoice number
+  document.getElementById('p-inv-no').textContent = 
+    document.getElementById('f-inv-no').value || '—';
+
+  // date
+  const dateVal = document.getElementById('f-date').value;
+  document.getElementById('p-date').textContent = dateVal
+    ? formatDate(dateVal) : '';
+
+  // time
+  const timeVal = document.getElementById('f-time').value;
+  document.getElementById('p-time').textContent = timeVal
+    ? formatTime(timeVal) : '';
+
+  // customer
+  document.getElementById('p-customer').textContent =
+    document.getElementById('f-customer').value || '';
+
+  // items table
+  const tbody = document.getElementById('p-items');
+  tbody.innerHTML = '';
+  let total = 0;
+  const MIN_ROWS = 7;
+
+  items.forEach((item, i) => {
+    const amt = calcAmount(item);
+    total += amt;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>
+        ${escHtml(item.desc)}
+        ${item.notes ? `<br><small><i>${escHtml(item.notes)}</i></small>` : ''}
+      </td>
+      <td style="text-align:right">${item.price !== '' ? 'Rs. ' + parseFloat(item.price || 0).toFixed(2) : ''}</td>
+      <td style="text-align:right">${item.units || ''}</td>
+      <td style="text-align:right">${(parseFloat(item.discountRate) || 0).toFixed(2)}</td>
+      <td style="text-align:right">${(parseFloat(item.gstRate) || 0).toFixed(2)}</td>
+      <td style="text-align:right">${amt > 0 ? 'Rs. ' + amt.toFixed(2) : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // empty filler rows
+  const fillerCount = Math.max(0, MIN_ROWS - items.length);
+  for (let i = 0; i < fillerCount; i++) {
+    const tr = document.createElement('tr');
+    tr.className = 'empty-row';
+    tr.innerHTML = '<td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
+    tbody.appendChild(tr);
+  }
+
+  // total
+  document.getElementById('p-total').textContent = 'Rs. ' + total.toFixed(2);
+
+  // in words — auto-fill if empty or auto
+  const manualWords = document.getElementById('f-inwords').value.trim();
+  const autoWords = numberToWords(total);
+  document.getElementById('p-inwords').textContent =
+    manualWords || autoWords;
+
+  // sync auto-fill placeholder
+  document.getElementById('f-inwords').placeholder = autoWords;
+}
+
+/* ──────────────────────────────────────────────
+   HELPERS
+────────────────────────────────────────────── */
+function formatDate(str) {
+  if (!str) return '';
+  const [y,m,d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
+function formatTime(str) {
+  if (!str) return '';
+  const [h,min] = str.split(':');
+  const hh = parseInt(h);
+  const ampm = hh >= 12 ? 'PM' : 'AM';
+  const hr = hh % 12 || 12;
+  return `${hr}:${min} ${ampm}`;
+}
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Number → Indian words
+function numberToWords(num) {
+  if (num === 0) return 'Zero';
+  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+    'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen',
+    'Eighteen','Nineteen'];
+  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+  function words(n) {
+    if (n === 0) return '';
+    if (n < 20) return ones[n] + ' ';
+    if (n < 100) return tens[Math.floor(n/10)] + ' ' + ones[n%10] + ' ';
+    if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred ' + words(n%100);
+    if (n < 100000) return words(Math.floor(n/1000)) + 'Thousand ' + words(n%1000);
+    if (n < 10000000) return words(Math.floor(n/100000)) + 'Lakh ' + words(n%100000);
+    return words(Math.floor(n/10000000)) + 'Crore ' + words(n%10000000);
+  }
+
+  const intPart = Math.floor(num);
+  const decPart = Math.round((num - intPart) * 100);
+  let result = words(intPart).trim();
+  if (decPart > 0) result += ' and ' + words(decPart).trim() + ' Paise';
+  return result;
+}
+
+/* ──────────────────────────────────────────────
+   DOWNLOAD — PDF
+────────────────────────────────────────────── */
+async function downloadPDF() {
+  showToast('Generating PDF…');
+  const el = document.getElementById('invoice');
+  const previewArea = document.querySelector('.preview-area');
+  
+  const originalTransform = el.style.transform;
+  const originalTransformOrigin = el.style.transformOrigin;
+  const originalMinHeight = previewArea.style.minHeight;
+
+  try {
+    el.style.transform = 'none';
+    el.style.transformOrigin = 'top left';
+    previewArea.style.minHeight = 'auto';
+
+    // Capture the full content
+    const canvas = await html2canvas(el, { 
+      scale: 3, 
+      useCORS: true, 
+      backgroundColor: '#fff',
+      logging: false,
+      width: 794,
+      height: el.scrollHeight,
+      windowHeight: el.scrollHeight,
+      y: 0,
+      scrollX: 0,
+      scrollY: 0
+    });
+
+    el.style.transform = originalTransform;
+    el.style.transformOrigin = originalTransformOrigin;
+    previewArea.style.minHeight = originalMinHeight;
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    
+    const imgWidth = 210; // A4 width in mm
+    const pageHeight = 297; // A4 height in mm
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    
+    // Calculate how many pixels on the canvas represent one A4 page
+    // (794px at 96dpi = 210mm. So 1123px = 297mm)
+    // Since we used scale: 3, one page height on canvas is 1123 * 3 = 3369px
+    const pxPageHeight = Math.floor((canvasWidth / imgWidth) * pageHeight);
+    
+    let leftHeight = canvasHeight;
+    let position = 0;
+    let pageCount = 0;
+
+    while (leftHeight > 0) {
+      if (pageCount > 0) pdf.addPage();
+      
+      // Create a temporary canvas for the current page slice
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvasWidth;
+      pageCanvas.height = Math.min(pxPageHeight, leftHeight);
+      
+      const ctx = pageCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, position, canvasWidth, pageCanvas.height, 0, 0, canvasWidth, pageCanvas.height);
+      
+      const imgData = pageCanvas.toDataURL('image/jpeg', 1.0);
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, (pageCanvas.height * imgWidth) / canvasWidth);
+      
+      leftHeight -= pxPageHeight;
+      position += pxPageHeight;
+      pageCount++;
+    }
+
+    pdf.save('RamArts_Invoice.pdf');
+    showToast(`PDF saved (${pageCount} page${pageCount > 1 ? 's' : ''}) ✓`);
+  } catch(e) {
+    el.style.transform = originalTransform;
+    el.style.transformOrigin = originalTransformOrigin;
+    previewArea.style.minHeight = originalMinHeight;
+    showToast('Error generating PDF');
+    console.error(e);
+  }
+}
+
+/* ──────────────────────────────────────────────
+   DOWNLOAD — JPG
+────────────────────────────────────────────── */
+async function downloadJPG() {
+  showToast('Generating JPG…');
+  const el = document.getElementById('invoice');
+  const previewArea = document.querySelector('.preview-area');
+  
+  const originalTransform = el.style.transform;
+  const originalTransformOrigin = el.style.transformOrigin;
+  const originalMinHeight = previewArea.style.minHeight;
+
+  try {
+    el.style.transform = 'none';
+    el.style.transformOrigin = 'top left';
+    previewArea.style.minHeight = 'auto';
+
+    const canvas = await html2canvas(el, { 
+      scale: 3, 
+      useCORS: true, 
+      backgroundColor: '#fff',
+      logging: false,
+      width: 794,
+      height: el.scrollHeight,
+      windowHeight: el.scrollHeight,
+      y: 0,
+      scrollX: 0,
+      scrollY: 0
+    });
+
+    el.style.transform = originalTransform;
+    el.style.transformOrigin = originalTransformOrigin;
+    previewArea.style.minHeight = originalMinHeight;
+
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const pxPageHeight = Math.floor((canvasWidth / 210) * 297); // A4 ratio
+    
+    let leftHeight = canvasHeight;
+    let position = 0;
+    let pageNum = 1;
+
+    while (leftHeight > 0) {
+      const sliceHeight = Math.min(pxPageHeight, leftHeight);
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = canvasWidth;
+      pageCanvas.height = sliceHeight;
+      
+      const ctx = pageCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, position, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
+      
+      const link = document.createElement('a');
+      link.download = `RamArts_Invoice_Page_${pageNum}.jpg`;
+      link.href = pageCanvas.toDataURL('image/jpeg', 0.95);
+      link.click();
+      
+      leftHeight -= pxPageHeight;
+      position += pxPageHeight;
+      pageNum++;
+      
+      // Small delay between multiple downloads to ensure browser triggers all
+      if (leftHeight > 0) await new Promise(r => setTimeout(r, 500));
+    }
+
+    showToast(`JPG saved (${pageNum-1} image${pageNum-1 > 1 ? 's' : ''}) ✓`);
+  } catch(e) {
+    el.style.transform = originalTransform;
+    el.style.transformOrigin = originalTransformOrigin;
+    previewArea.style.minHeight = originalMinHeight;
+    showToast('Error generating JPG');
+    console.error(e);
+  }
+}
+
+/* ──────────────────────────────────────────────
+   PRINT
+────────────────────────────────────────────── */
+function printInvoice() {
+  window.print();
+}
+
+/* ──────────────────────────────────────────────
+   TOAST
+────────────────────────────────────────────── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js');
+    });
+  }
+</script>
+</body>
+</html>
