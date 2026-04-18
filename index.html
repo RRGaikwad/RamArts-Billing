@@ -851,8 +851,12 @@ function loadCurrentForm() {
   if (saved) {
     const data = JSON.parse(saved);
     document.getElementById('f-inv-no').value = data.invNo || getNextInvoiceNumber();
-    document.getElementById('f-date').value = data.date || '';
-    document.getElementById('f-time').value = data.time || '';
+    
+    // Always use current date and time for new invoices unless explicitly loaded from history
+    const now = new Date();
+    document.getElementById('f-date').value = now.toISOString().slice(0,10);
+    document.getElementById('f-time').value = now.toTimeString().slice(0,5);
+    
     document.getElementById('f-customer').value = data.customer || '';
     document.getElementById('f-inwords').value = data.inwords || '';
     items = data.items || [{ desc: '', price: '', units: '1', gstRate: '0', gstAmount: '0.00', discountRate: '0', discountAmount: '0.00', notes: '' }];
