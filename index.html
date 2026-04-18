@@ -313,16 +313,18 @@
   .inv-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     padding-bottom: 15px;
     border-bottom: 2px solid var(--line);
   }
-  .inv-logo-block { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-  /* logo img inline */
-  .inv-shop-name {
+  .inv-logo-block { display: flex; flex-direction: column; align-items: center; }
+  .logo-subtext {
     font-family: var(--ff-head);
-    font-size: 1.05rem; letter-spacing: 3px;
-    color: var(--ink); margin-top: 2px;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: -10px;
+    letter-spacing: 1.5px;
+    color: var(--ink);
   }
 
   .inv-addr {
@@ -618,10 +620,9 @@
       <!-- HEADER -->
       <div class="inv-header">
         <div class="inv-logo-block">
-          <img src="RamArts%20Icon.png?v=2" alt="Ram Arts Logo" style="height: 60px; width: auto;">
-          <div class="inv-shop-name">Ram Arts</div>
+          <img src="RamArts Icon.png" alt="Ram Arts Logo" style="height: 120px; width: auto;">
+          <div class="logo-subtext">Someshwarnagar</div>
         </div>
-
         <div class="inv-addr">
           <strong>Someshwar Sugar Factory road<br>Someshwarnagar</strong><br>
           <b>Tal</b>: BARAMATI <br>
